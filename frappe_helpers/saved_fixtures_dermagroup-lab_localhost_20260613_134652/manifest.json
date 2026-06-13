@@ -1,0 +1,14 @@
+{
+  "site": "dermagroup-lab.localhost",
+  "created_at": "2026-06-13T13:47:04.761904",
+  "import_order": [
+    "User"
+  ],
+  "files": [
+    {
+      "doctype": "User",
+      "filepath": "User.json",
+      "type": "requested"
+    }
+  ]
+}

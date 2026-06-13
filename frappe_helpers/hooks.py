@@ -5,6 +5,10 @@ app_description = "A frappe app with utils for staging or development"
 app_email = "cegomezpy@gmail.com"
 app_license = "mit"
 
+# Bench CLI Commands
+# ------------------
+commands = "frappe_helpers.commands"
+
 # Apps
 # ------------------
 
