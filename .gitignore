@@ -1,0 +1,11 @@
+.DS_Store
+*.pyc
+*.egg-info
+*.swp
+tags
+node_modules
+__pycache__
+# Frappe Helpers - Exported fixtures (site-specific)
+saved_fixtures_*
+env_reset_fixtures/
+*.log
