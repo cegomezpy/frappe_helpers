@@ -104,6 +104,8 @@ class EnvResetOrchestrator:
 		plan: EnvResetPlan,
 		output_dir: Optional[str] = None,
 		skip_backup: bool = False,
+		mariadb_root_password: Optional[str] = None,
+		admin_password: Optional[str] = None,
 	) -> EnvResetResult:
 		"""
 		Execute the environment reset with the given plan.
@@ -114,6 +116,8 @@ class EnvResetOrchestrator:
 			plan: Execution plan from create_plan()
 			output_dir: Optional output directory for exports
 			skip_backup: Whether to skip backup step
+			mariadb_root_password: Optional MariaDB root password
+			admin_password: Optional Administrator password
 
 		Returns:
 			EnvResetResult with operation outcome
@@ -121,6 +125,12 @@ class EnvResetOrchestrator:
 		self.logger.info(f"Starting environment reset for site: {self.site}")
 
 		try:
+			# Propagate passwords to environment variables if provided
+			if mariadb_root_password:
+				os.environ["MARIADB_ROOT_PASSWORD"] = mariadb_root_password
+			if admin_password:
+				os.environ["ADMIN_PASSWORD"] = admin_password
+
 			output_dir = self._prepare_output_dir(output_dir)
 
 			if not skip_backup:

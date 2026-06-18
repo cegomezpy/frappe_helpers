@@ -95,8 +95,24 @@ def _print_result(result):
 	default=False,
 	help="Show what would happen without making any changes.",
 )
+@click.option(
+	"--yes", "-y",
+	is_flag=True,
+	default=False,
+	help="Bypass confirmation prompt.",
+)
+@click.option(
+	"--mariadb-root-password",
+	default=None,
+	help="MariaDB root password for reinstalling the site.",
+)
+@click.option(
+	"--admin-password",
+	default=None,
+	help="New Administrator password for the reinstalled site.",
+)
 @click.pass_context
-def env_reset(ctx, save_tables, output_dir, skip_backup, no_deps, dry_run):
+def env_reset(ctx, save_tables, output_dir, skip_backup, no_deps, dry_run, yes, mariadb_root_password, admin_password):
 	"""
 	Reset a Frappe site while preserving selected DocType data.
 
@@ -139,14 +155,15 @@ def env_reset(ctx, save_tables, output_dir, skip_backup, no_deps, dry_run):
 			click.echo(click.style("\n── DRY RUN — no changes made ──────────\n", fg="yellow"))
 			return
 
-		click.echo()
-		click.confirm(
-			click.style(
-				"⚠  This will REINSTALL the site and erase ALL data. Proceed?",
-				fg="red", bold=True,
-			),
-			abort=True,
-		)
+		if not yes:
+			click.echo()
+			click.confirm(
+				click.style(
+					"⚠  This will REINSTALL the site and erase ALL data. Proceed?",
+					fg="red", bold=True,
+				),
+				abort=True,
+			)
 
 		if output_dir:
 			click.echo(f"\n📁 Fixtures will be saved to: {output_dir}")
@@ -155,6 +172,8 @@ def env_reset(ctx, save_tables, output_dir, skip_backup, no_deps, dry_run):
 			plan=plan,
 			output_dir=output_dir,
 			skip_backup=skip_backup,
+			mariadb_root_password=mariadb_root_password,
+			admin_password=admin_password,
 		)
 
 		_print_result(result)

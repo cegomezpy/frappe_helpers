@@ -115,5 +115,14 @@ class BackupService:
 		"""
 		self.logger.warning(f"Reinstalling site: {site} - ALL DATA WILL BE ERASED")
 		args = ["--site", site, "reinstall", "--yes"]
+		
+		# Read MariaDB root password from environment variables to bypass interactive prompts
+		db_root_password = os.environ.get("MARIADB_ROOT_PASSWORD") or os.environ.get("MYSQL_ROOT_PASSWORD")
+		if db_root_password:
+			args.extend(["--mariadb-root-password", db_root_password])
+
+		# Read Administrator password from environment or fallback to 'admin'
+		admin_password = os.environ.get("ADMIN_PASSWORD") or "admin"
+		args.extend(["--admin-password", admin_password])
 
 		return self._run_bench_command(args, "Site reinstall")
