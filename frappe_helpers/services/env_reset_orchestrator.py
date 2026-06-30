@@ -170,8 +170,7 @@ class EnvResetOrchestrator:
 		Defaults to: {bench-root}/sites/{site}/private/env_reset_fixtures/{timestamp}
 		"""
 		if not output_dir:
-			# Get bench root (cwd when running bench commands)
-			bench_root = os.getcwd()
+			bench_root = frappe.utils.get_bench_path()
 
 			# Create timestamp for unique directory
 			ts = datetime.now().strftime("%Y%m%d_%H%M%S")

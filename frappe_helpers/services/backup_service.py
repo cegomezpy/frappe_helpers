@@ -24,7 +24,7 @@ class BackupService:
 		Returns:
 			Bench root path
 		"""
-		return os.getcwd()
+		return frappe.utils.get_bench_path()
 
 	def _run_bench_command(self, args: List[str], description: str) -> bool:
 		"""
