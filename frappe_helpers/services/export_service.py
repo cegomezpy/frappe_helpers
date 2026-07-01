@@ -90,7 +90,6 @@ class ExportService:
 
 		except Exception as exc:
 			self.logger.error(f"Failed to export {doctype}: {exc}", exc_info=True)
-			frappe.log_error(title=f"Env Reset: Export {doctype} Failed")
 			return None
 
 	def export_all(

@@ -154,7 +154,6 @@ class EnvResetOrchestrator:
 
 		except Exception as e:
 			self.logger.error(f"Environment reset failed: {e}", exc_info=True)
-			frappe.log_error(title="Env Reset Failed")
 			return EnvResetResult(
 				success=False,
 				doctypes_processed=0,

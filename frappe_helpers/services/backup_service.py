@@ -55,7 +55,6 @@ class BackupService:
 					f"STDERR: {result.stderr}"
 				)
 				self.logger.error(error_msg)
-				frappe.log_error(title=f"Env Reset: {description} Failed", message=error_msg)
 				return False
 
 			self.logger.info(f"{description} completed successfully")
@@ -63,7 +62,6 @@ class BackupService:
 
 		except Exception as e:
 			self.logger.error(f"{description} failed with exception: {e}", exc_info=True)
-			frappe.log_error(title=f"Env Reset: {description} Failed")
 			return False
 
 	def get_backup_path(self, site: str) -> str:
