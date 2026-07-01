@@ -61,7 +61,7 @@ class ImportService:
 				success += 1
 
 			except Exception as exc:
-				self.logger.warning(f"Failed to import {doctype} '{name}': {exc}")
+				self.logger.error(f"Failed to import {doctype} '{name}': {exc}", exc_info=True)
 				fail += 1
 
 		frappe.db.commit()
@@ -79,9 +79,9 @@ class ImportService:
 			Dictionary with import statistics
 		"""
 		self.logger.info("Re-initializing Frappe connection")
-		frappe.destroy()
 		frappe.init(site=site)
 		frappe.connect()
+		self.logger = frappe.logger("frappe_helpers.import_service")
 
 		total_ok = 0
 		total_fail = 0
@@ -91,7 +91,7 @@ class ImportService:
 			filepath = os.path.join(self.output_dir, entry["filepath"])
 
 			if not os.path.exists(filepath):
-				self.logger.warning(f"File missing for {doctype}, skipped")
+				self.logger.error(f"File missing for {doctype}: {filepath}, skipped")
 				continue
 
 			with open(filepath, "r", encoding="utf-8") as fh:
@@ -104,7 +104,7 @@ class ImportService:
 			total_fail += fail
 
 			if fail:
-				self.logger.warning(f"{doctype}: {ok} imported, {fail} failed")
+				self.logger.error(f"{doctype}: {ok} imported, {fail} failed")
 			else:
 				self.logger.info(f"{doctype}: {ok} imported successfully")
 

@@ -76,7 +76,7 @@ class ExportService:
 					doc = frappe.get_doc(doctype, row.name)
 					full_records.append(doc.as_dict())
 				except Exception as exc:
-					self.logger.warning(f"Could not fetch {doctype} '{row.name}': {exc}")
+					self.logger.error(f"Could not fetch {doctype} '{row.name}': {exc}", exc_info=True)
 
 			if not full_records:
 				return None
@@ -89,7 +89,8 @@ class ExportService:
 			return filepath
 
 		except Exception as exc:
-			self.logger.error(f"Failed to export {doctype}: {exc}")
+			self.logger.error(f"Failed to export {doctype}: {exc}", exc_info=True)
+			frappe.log_error(title=f"Env Reset: Export {doctype} Failed")
 			return None
 
 	def export_all(

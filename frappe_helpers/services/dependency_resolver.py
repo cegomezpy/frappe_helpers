@@ -33,7 +33,7 @@ class DependencyResolver:
 		try:
 			meta = frappe.get_meta(doctype)
 		except Exception as e:
-			self.logger.error(f"Failed to get meta for {doctype}: {e}")
+			self.logger.error(f"Failed to get meta for {doctype}: {e}", exc_info=True)
 			return set()
 
 		linked = set()
@@ -60,7 +60,7 @@ class DependencyResolver:
 		try:
 			meta = frappe.get_meta(doctype)
 		except Exception as e:
-			self.logger.error(f"Failed to get meta for {doctype}: {e}")
+			self.logger.error(f"Failed to get meta for {doctype}: {e}", exc_info=True)
 			return {}
 
 		# Map: value_fieldname → fieldname_that_holds_the_doctype

@@ -32,7 +32,7 @@ class DocTypeValidator:
 			try:
 				exists = frappe.db.exists("DocType", doctype)
 			except Exception as e:
-				logger.error(f"Error checking DocType {doctype}: {e}")
+				logger.error(f"Error checking DocType {doctype}: {e}", exc_info=True)
 				exists = False
 
 			if not exists:
