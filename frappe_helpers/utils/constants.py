@@ -58,3 +58,45 @@ FRAMEWORK_DOCTYPES = frozenset({
     # Web
     "Web Page", "Web Form", "Blog Post", "Blog Category",
 })
+
+SETUP_DOCTYPES = [
+    # Core Company Setup
+    "Company",
+    "Currency",
+    "Country",
+
+    # Settings (Singles)
+    "System Settings",
+    "Website Settings",
+    "Selling Settings",
+    "Buying Settings",
+    "Stock Settings",
+    "Accounts Settings",
+    "HR Settings",
+    "Manufacturing Settings",
+    "CRM Settings",
+
+    # Basic Master Data
+    "Fiscal Year",
+    "Territory",
+    "Customer Group",
+    "Supplier Group",
+    "Item Group",
+    "Brand",
+    "UOM",
+    "Warehouse",
+
+    # Chart of Accounts
+    "Account",
+    "Cost Center",
+    "Mode of Payment",
+    "Payment Terms Template",
+
+    # Email & Communication
+    "Email Domain",
+    "Email Account",
+
+    # User Configuration
+    "User",
+    "Role",
+]

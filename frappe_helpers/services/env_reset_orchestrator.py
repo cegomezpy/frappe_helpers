@@ -119,6 +119,7 @@ class EnvResetOrchestrator:
 		skip_backup: bool = False,
 		mariadb_root_password: Optional[str] = None,
 		admin_password: Optional[str] = None,
+		preserve_setup: bool = False,
 	) -> EnvResetResult:
 		"""
 		Execute the environment reset with the given plan.
@@ -131,6 +132,7 @@ class EnvResetOrchestrator:
 			skip_backup: Whether to skip backup step
 			mariadb_root_password: Optional MariaDB root password
 			admin_password: Optional Administrator password
+			preserve_setup: Whether to disable setup wizard after import
 
 		Returns:
 			EnvResetResult with operation outcome
@@ -156,6 +158,9 @@ class EnvResetOrchestrator:
 			self._execute_reinstall()
 
 			stats = self._execute_import(manifest, output_dir)
+
+			if preserve_setup:
+				self._disable_setup_wizard()
 
 			return EnvResetResult(
 				success=True,
@@ -237,3 +242,29 @@ class EnvResetOrchestrator:
 		self.logger.info("Executing import")
 		import_service = ImportService(output_dir, verbose=self.verbose)
 		return import_service.import_all(manifest, self.site)
+
+	def _disable_setup_wizard(self):
+		"""Disable setup wizard after successful import."""
+		self.logger.info("Disabling setup wizard")
+
+		if self.verbose:
+			click.echo(click.style(f"\n→ Disabling setup wizard...", fg="cyan"))
+
+		try:
+			if frappe.db.exists("Singles", "System Settings"):
+				frappe.db.set_value("System Settings", None, "setup_complete", 1)
+				frappe.db.commit()
+
+				if self.verbose:
+					click.echo(click.style(f"  ✓ Setup wizard disabled", fg="green"))
+
+				self.logger.info("Setup wizard disabled successfully")
+			else:
+				self.logger.warning("System Settings not found, skipping setup wizard disable")
+				if self.verbose:
+					click.echo(click.style(f"  ⚠ System Settings not found, skipping", fg="yellow"))
+
+		except Exception as e:
+			self.logger.error(f"Failed to disable setup wizard: {e}", exc_info=True)
+			if self.verbose:
+				click.echo(click.style(f"  ✗ Failed to disable setup wizard: {e}", fg="red"))

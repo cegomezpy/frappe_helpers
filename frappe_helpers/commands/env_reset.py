@@ -13,6 +13,7 @@ import click
 import frappe
 
 from frappe_helpers.services.env_reset_orchestrator import EnvResetOrchestrator
+from frappe_helpers.utils.constants import SETUP_DOCTYPES
 
 
 def _print_banner():
@@ -117,8 +118,14 @@ def _print_result(result):
 	default=False,
 	help="Show detailed output of all operations.",
 )
+@click.option(
+	"--preserve-setup",
+	is_flag=True,
+	default=False,
+	help="Automatically preserve ERPNext setup configuration and disable setup wizard after import.",
+)
 @click.pass_context
-def env_reset(ctx, save_tables, output_dir, skip_backup, no_deps, dry_run, yes, mariadb_root_password, admin_password, verbose):
+def env_reset(ctx, save_tables, output_dir, skip_backup, no_deps, dry_run, yes, mariadb_root_password, admin_password, verbose, preserve_setup):
 	"""
 	Reset a Frappe site while preserving selected DocType data.
 
@@ -130,12 +137,19 @@ def env_reset(ctx, save_tables, output_dir, skip_backup, no_deps, dry_run, yes, 
 	  4. Exports all records from the selected DocTypes to JSON
 	  5. Reinstalls the site  ← THIS ERASES ALL DATA
 	  6. Re-imports the saved JSON records
+	  7. (Optional) Disables setup wizard if --preserve-setup is used
 
 	\b
 	Example:
 	  bench --site mysite.local env-reset \\
 	        -s "Item" -s "Item Group" -s "UOM" \\
 	        -s "Customer" -s "Customer Group"
+
+	\b
+	Preserve setup configuration (recommended for ERPNext):
+	  bench --site mysite.local env-reset \\
+	        -s "Item" -s "Customer" \\
+	        --preserve-setup
 
 	\b
 	Dry run (see what would be exported):
@@ -150,8 +164,20 @@ def env_reset(ctx, save_tables, output_dir, skip_backup, no_deps, dry_run, yes, 
 
 		orchestrator = EnvResetOrchestrator(site, verbose=verbose)
 
+		doctypes_to_save = list(save_tables)
+
+		if preserve_setup:
+			if verbose:
+				click.echo(click.style(f"\n→ Preserve setup enabled - adding setup configuration DocTypes...", fg="cyan"))
+
+			setup_doctypes = [dt for dt in SETUP_DOCTYPES if dt not in doctypes_to_save]
+			doctypes_to_save.extend(setup_doctypes)
+
+			if verbose:
+				click.echo(click.style(f"  ✓ Added {len(setup_doctypes)} setup DocTypes", fg="green"))
+
 		plan = orchestrator.create_plan(
-			requested_doctypes=list(save_tables),
+			requested_doctypes=doctypes_to_save,
 			resolve_dependencies=not no_deps
 		)
 
@@ -180,6 +206,7 @@ def env_reset(ctx, save_tables, output_dir, skip_backup, no_deps, dry_run, yes, 
 			skip_backup=skip_backup,
 			mariadb_root_password=mariadb_root_password,
 			admin_password=admin_password,
+			preserve_setup=preserve_setup,
 		)
 
 		_print_result(result)
