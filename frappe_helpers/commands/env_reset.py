@@ -111,8 +111,14 @@ def _print_result(result):
 	default=None,
 	help="New Administrator password for the reinstalled site.",
 )
+@click.option(
+	"--verbose", "-v",
+	is_flag=True,
+	default=False,
+	help="Show detailed output of all operations.",
+)
 @click.pass_context
-def env_reset(ctx, save_tables, output_dir, skip_backup, no_deps, dry_run, yes, mariadb_root_password, admin_password):
+def env_reset(ctx, save_tables, output_dir, skip_backup, no_deps, dry_run, yes, mariadb_root_password, admin_password, verbose):
 	"""
 	Reset a Frappe site while preserving selected DocType data.
 
@@ -142,7 +148,7 @@ def env_reset(ctx, save_tables, output_dir, skip_backup, no_deps, dry_run, yes, 
 	try:
 		_print_banner()
 
-		orchestrator = EnvResetOrchestrator(site)
+		orchestrator = EnvResetOrchestrator(site, verbose=verbose)
 
 		plan = orchestrator.create_plan(
 			requested_doctypes=list(save_tables),

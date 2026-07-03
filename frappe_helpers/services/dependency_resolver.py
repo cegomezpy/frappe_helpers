@@ -7,6 +7,7 @@ Service for resolving DocType dependencies.
 from collections import defaultdict, deque
 from typing import Dict, List, Set
 
+import click
 import frappe
 from frappe_helpers.utils.constants import FRAMEWORK_DOCTYPES
 
@@ -14,7 +15,8 @@ from frappe_helpers.utils.constants import FRAMEWORK_DOCTYPES
 class DependencyResolver:
 	"""Resolves and manages DocType dependencies."""
 
-	def __init__(self):
+	def __init__(self, verbose: bool = False):
+		self.verbose = verbose
 		self.logger = frappe.logger("frappe_helpers.dependency_resolver")
 
 	def get_schema_links(self, doctype: str) -> Set[str]:
@@ -100,13 +102,23 @@ class DependencyResolver:
 
 		while queue:
 			doctype = queue.popleft()
-			for linked_dt in self.get_schema_links(doctype):
+			links = self.get_schema_links(doctype)
+
+			if self.verbose and links:
+				click.echo(click.style(f"    {doctype} links to: {', '.join(links)}", fg="white", dim=True))
+
+			for linked_dt in links:
 				if linked_dt not in result:
 					result[linked_dt] = "dependency"
 					queue.append(linked_dt)
+					if self.verbose:
+						click.echo(click.style(f"    + Added dependency: {linked_dt}", fg="cyan"))
 
 		n_deps = sum(1 for v in result.values() if v == "dependency")
 		self.logger.info(f"Resolved {n_deps} additional dependencies")
+
+		if self.verbose:
+			click.echo(click.style(f"  ✓ Resolved {n_deps} additional dependencies", fg="green"))
 
 		return result
 
@@ -153,6 +165,11 @@ class DependencyResolver:
 				f"Circular dependencies detected: {', '.join(remaining)}. "
 				"These will be imported last."
 			)
+			if self.verbose:
+				click.echo(click.style(f"  ⚠ Circular dependencies: {', '.join(remaining)}", fg="yellow"))
 			order.extend(remaining)
+
+		if self.verbose:
+			click.echo(click.style(f"  ✓ Import order computed ({len(order)} DocTypes)", fg="green"))
 
 		return order

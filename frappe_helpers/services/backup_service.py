@@ -8,13 +8,15 @@ import os
 import subprocess
 from typing import List
 
+import click
 import frappe
 
 
 class BackupService:
 	"""Handles site backup and reinstall operations."""
 
-	def __init__(self):
+	def __init__(self, verbose: bool = False):
+		self.verbose = verbose
 		self.logger = frappe.logger("frappe_helpers.backup_service")
 
 	def _get_bench_root(self) -> str:
@@ -40,6 +42,9 @@ class BackupService:
 		cmd = ["bench"] + args
 		self.logger.info(f"Running: {' '.join(cmd)}")
 
+		if self.verbose:
+			click.echo(click.style(f"    $ {' '.join(cmd)}", fg="white", dim=True))
+
 		try:
 			result = subprocess.run(
 				cmd,
@@ -48,6 +53,11 @@ class BackupService:
 				text=True
 			)
 
+			if self.verbose and result.stdout:
+				for line in result.stdout.strip().split('\n'):
+					if line.strip():
+						click.echo(f"      {line}")
+
 			if result.returncode != 0:
 				error_msg = (
 					f"{description} failed with code {result.returncode}\n"
@@ -55,6 +65,10 @@ class BackupService:
 					f"STDERR: {result.stderr}"
 				)
 				self.logger.error(error_msg)
+				if self.verbose:
+					click.echo(click.style(f"    ✗ Command failed with code {result.returncode}", fg="red"))
+					if result.stderr:
+						click.echo(click.style(f"      {result.stderr}", fg="red"))
 				return False
 
 			self.logger.info(f"{description} completed successfully")
@@ -62,6 +76,8 @@ class BackupService:
 
 		except Exception as e:
 			self.logger.error(f"{description} failed with exception: {e}", exc_info=True)
+			if self.verbose:
+				click.echo(click.style(f"    ✗ Exception: {e}", fg="red"))
 			return False
 
 	def get_backup_path(self, site: str) -> str:
@@ -92,6 +108,9 @@ class BackupService:
 		self.logger.info(f"Starting backup for site: {site}")
 		self.logger.info(f"Backup will be saved to: {backup_path}")
 
+		if self.verbose:
+			click.echo(click.style(f"    Backup path: {backup_path}", fg="white", dim=True))
+
 		args = ["--site", site, "backup"]
 
 		if with_files:
@@ -115,15 +134,23 @@ class BackupService:
 			True if reinstall successful, False otherwise
 		"""
 		self.logger.warning(f"Reinstalling site: {site} - ALL DATA WILL BE ERASED")
+
+		if self.verbose:
+			click.echo(click.style(f"    ⚠  ALL DATA WILL BE ERASED", fg="red", bold=True))
+
 		args = ["--site", site, "reinstall", "--yes"]
-		
+
 		# Read MariaDB root password from environment variables to bypass interactive prompts
 		db_root_password = os.environ.get("MARIADB_ROOT_PASSWORD") or os.environ.get("MYSQL_ROOT_PASSWORD")
 		if db_root_password:
 			args.extend(["--mariadb-root-password", db_root_password])
+			if self.verbose:
+				click.echo(click.style(f"    Using MariaDB root password from environment", fg="white", dim=True))
 
 		# Read Administrator password from environment or fallback to 'admin'
 		admin_password = os.environ.get("ADMIN_PASSWORD") or "admin"
 		args.extend(["--admin-password", admin_password])
+		if self.verbose:
+			click.echo(click.style(f"    Using admin password from environment", fg="white", dim=True))
 
 		return self._run_bench_command(args, "Site reinstall")

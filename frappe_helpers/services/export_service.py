@@ -10,20 +10,23 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import click
 import frappe
 
 
 class ExportService:
 	"""Handles exporting DocType records to JSON files."""
 
-	def __init__(self, output_dir: str):
+	def __init__(self, output_dir: str, verbose: bool = False):
 		"""
 		Initialize the export service.
 
 		Args:
 			output_dir: Directory where JSON files will be saved
+			verbose: Enable verbose output
 		"""
 		self.output_dir = output_dir
+		self.verbose = verbose
 		self.logger = frappe.logger("frappe_helpers.export_service")
 		os.makedirs(output_dir, exist_ok=True)
 
@@ -56,6 +59,9 @@ class ExportService:
 		"""
 		self.logger.info(f"Exporting {doctype}...")
 
+		if self.verbose:
+			click.echo(click.style(f"  → Exporting {doctype}...", fg="cyan"))
+
 		try:
 			filters = [["name", "in", names_filter]] if names_filter else None
 
@@ -68,6 +74,8 @@ class ExportService:
 
 			if not rows:
 				self.logger.info(f"{doctype} is empty, skipped")
+				if self.verbose:
+					click.echo(click.style(f"    ⊘ {doctype} is empty, skipped", fg="yellow", dim=True))
 				return None
 
 			full_records = []
@@ -75,8 +83,12 @@ class ExportService:
 				try:
 					doc = frappe.get_doc(doctype, row.name)
 					full_records.append(doc.as_dict())
+					if self.verbose:
+						click.echo(f"    • {row.name}")
 				except Exception as exc:
 					self.logger.error(f"Could not fetch {doctype} '{row.name}': {exc}", exc_info=True)
+					if self.verbose:
+						click.echo(click.style(f"    ✗ Failed to fetch {row.name}: {exc}", fg="red"))
 
 			if not full_records:
 				return None
@@ -86,10 +98,14 @@ class ExportService:
 				json.dump(full_records, fh, indent=2, default=str, ensure_ascii=False)
 
 			self.logger.info(f"Exported {len(full_records)} record(s) from {doctype}")
+			if self.verbose:
+				click.echo(click.style(f"    ✓ Exported {len(full_records)} record(s)", fg="green"))
 			return filepath
 
 		except Exception as exc:
 			self.logger.error(f"Failed to export {doctype}: {exc}", exc_info=True)
+			if self.verbose:
+				click.echo(click.style(f"    ✗ Export failed: {exc}", fg="red"))
 			return None
 
 	def export_all(
@@ -110,6 +126,10 @@ class ExportService:
 			List of manifest entries (dicts with doctype/filepath/type)
 		"""
 		self.logger.info(f"Starting export of {len(doctypes_dict)} DocType(s)")
+
+		if self.verbose:
+			click.echo(click.style(f"\n→ Exporting {len(doctypes_dict)} DocType(s) to {self.output_dir}", fg="cyan"))
+
 		manifest = []
 
 		for doctype in import_order:
@@ -126,6 +146,9 @@ class ExportService:
 
 		self._create_manifest(manifest, site)
 		self.logger.info(f"Export complete: {len(manifest)} DocType(s) exported")
+
+		if self.verbose:
+			click.echo(click.style(f"  ✓ Export complete: {len(manifest)} DocType(s) exported", fg="green"))
 
 		return manifest
 

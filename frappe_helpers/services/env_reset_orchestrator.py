@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import click
 import frappe
 
 from frappe_helpers.services.backup_service import BackupService
@@ -50,19 +51,21 @@ class EnvResetOrchestrator:
 	- Provides rollback information on failure
 	"""
 
-	def __init__(self, site: str):
+	def __init__(self, site: str, verbose: bool = False):
 		"""
 		Initialize orchestrator for a specific site.
 
 		Args:
 			site: Site name
+			verbose: Enable verbose output
 		"""
 		self.site = site
+		self.verbose = verbose
 		self.logger = frappe.logger("frappe_helpers.orchestrator")
 
 		self.validator = DocTypeValidator()
-		self.resolver = DependencyResolver()
-		self.backup_service = BackupService()
+		self.resolver = DependencyResolver(verbose=verbose)
+		self.backup_service = BackupService(verbose=verbose)
 
 	def create_plan(
 		self,
@@ -81,13 +84,23 @@ class EnvResetOrchestrator:
 		"""
 		self.logger.info(f"Creating reset plan for {len(requested_doctypes)} DocTypes")
 
+		if self.verbose:
+			click.echo(click.style(f"\n→ Validating {len(requested_doctypes)} DocType(s)...", fg="cyan"))
+
 		validated = self.validator.validate_doctypes_exist(requested_doctypes)
 
+		if self.verbose:
+			click.echo(click.style(f"  ✓ All DocTypes validated", fg="green"))
+
 		if resolve_dependencies:
+			if self.verbose:
+				click.echo(click.style(f"→ Resolving dependencies...", fg="cyan"))
 			doctypes_dict = self.resolver.resolve_all_dependencies(validated)
 		else:
 			doctypes_dict = {dt: "requested" for dt in validated}
 
+		if self.verbose:
+			click.echo(click.style(f"→ Computing import order...", fg="cyan"))
 		import_order = self.resolver.topological_sort(doctypes_dict)
 		dep_count = sum(1 for v in doctypes_dict.values() if v == "dependency")
 
@@ -192,13 +205,17 @@ class EnvResetOrchestrator:
 	def _execute_backup(self):
 		"""Execute backup step."""
 		self.logger.info("Executing backup")
+		if self.verbose:
+			click.echo(click.style(f"\n→ Creating site backup...", fg="cyan"))
 		if not self.backup_service.backup_site(self.site):
 			raise RuntimeError("Backup failed")
+		if self.verbose:
+			click.echo(click.style(f"  ✓ Backup completed", fg="green"))
 
 	def _execute_export(self, plan: EnvResetPlan, output_dir: str) -> List[Dict]:
 		"""Execute export step."""
 		self.logger.info("Executing export")
-		export_service = ExportService(output_dir)
+		export_service = ExportService(output_dir, verbose=self.verbose)
 		return export_service.export_all(
 			plan.all_doctypes,
 			plan.import_order,
@@ -208,11 +225,15 @@ class EnvResetOrchestrator:
 	def _execute_reinstall(self):
 		"""Execute reinstall step."""
 		self.logger.warning("Executing reinstall - all data will be erased")
+		if self.verbose:
+			click.echo(click.style(f"\n→ Reinstalling site (this will erase all data)...", fg="yellow", bold=True))
 		if not self.backup_service.reinstall_site(self.site):
 			raise RuntimeError("Reinstall failed")
+		if self.verbose:
+			click.echo(click.style(f"  ✓ Site reinstalled successfully", fg="green"))
 
 	def _execute_import(self, manifest: List[Dict], output_dir: str) -> Dict[str, int]:
 		"""Execute import step."""
 		self.logger.info("Executing import")
-		import_service = ImportService(output_dir)
+		import_service = ImportService(output_dir, verbose=self.verbose)
 		return import_service.import_all(manifest, self.site)

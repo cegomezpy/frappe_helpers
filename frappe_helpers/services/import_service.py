@@ -8,20 +8,23 @@ import json
 import os
 from typing import Dict, List, Tuple
 
+import click
 import frappe
 
 
 class ImportService:
 	"""Handles importing DocType records from JSON files."""
 
-	def __init__(self, output_dir: str):
+	def __init__(self, output_dir: str, verbose: bool = False):
 		"""
 		Initialize the import service.
 
 		Args:
 			output_dir: Directory containing JSON files to import
+			verbose: Enable verbose output
 		"""
 		self.output_dir = output_dir
+		self.verbose = verbose
 		self.logger = frappe.logger("frappe_helpers.import_service")
 
 	def import_records(self, doctype: str, records: List[dict]) -> Tuple[int, int]:
@@ -49,6 +52,8 @@ class ImportService:
 					doc.flags.ignore_permissions = True
 					doc.flags.ignore_validate = True
 					doc.save(ignore_permissions=True)
+					if self.verbose:
+						click.echo(f"    • Updated {name}")
 				else:
 					doc = frappe.get_doc(rec)
 					doc.flags.ignore_permissions = True
@@ -58,10 +63,14 @@ class ImportService:
 						ignore_if_duplicate=True,
 						ignore_links=True,
 					)
+					if self.verbose:
+						click.echo(f"    • Inserted {name}")
 				success += 1
 
 			except Exception as exc:
 				self.logger.error(f"Failed to import {doctype} '{name}': {exc}", exc_info=True)
+				if self.verbose:
+					click.echo(click.style(f"    ✗ Failed to import {name}: {exc}", fg="red"))
 				fail += 1
 
 		frappe.db.commit()
@@ -79,9 +88,17 @@ class ImportService:
 			Dictionary with import statistics
 		"""
 		self.logger.info("Re-initializing Frappe connection")
+
+		if self.verbose:
+			click.echo(click.style(f"\n→ Re-initializing Frappe connection...", fg="cyan"))
+
 		frappe.init(site=site)
 		frappe.connect()
 		self.logger = frappe.logger("frappe_helpers.import_service")
+
+		if self.verbose:
+			click.echo(click.style(f"  ✓ Connected to site: {site}", fg="green"))
+			click.echo(click.style(f"\n→ Importing {len(manifest)} DocType(s)...", fg="cyan"))
 
 		total_ok = 0
 		total_fail = 0
@@ -92,12 +109,17 @@ class ImportService:
 
 			if not os.path.exists(filepath):
 				self.logger.error(f"File missing for {doctype}: {filepath}, skipped")
+				if self.verbose:
+					click.echo(click.style(f"  ✗ File missing for {doctype}, skipped", fg="red"))
 				continue
 
 			with open(filepath, "r", encoding="utf-8") as fh:
 				records = json.load(fh)
 
 			self.logger.info(f"Importing {doctype}...")
+			if self.verbose:
+				click.echo(click.style(f"  → Importing {doctype} ({len(records)} record(s))...", fg="cyan"))
+
 			ok, fail = self.import_records(doctype, records)
 
 			total_ok += ok
@@ -105,10 +127,17 @@ class ImportService:
 
 			if fail:
 				self.logger.error(f"{doctype}: {ok} imported, {fail} failed")
+				if self.verbose:
+					click.echo(click.style(f"    ⚠ {ok} imported, {fail} failed", fg="yellow"))
 			else:
 				self.logger.info(f"{doctype}: {ok} imported successfully")
+				if self.verbose:
+					click.echo(click.style(f"    ✓ {ok} imported successfully", fg="green"))
 
 		self.logger.info(f"Import complete: {total_ok} records imported, {total_fail} failed")
+
+		if self.verbose:
+			click.echo(click.style(f"\n  ✓ Import complete: {total_ok} records imported, {total_fail} failed", fg="green"))
 
 		return {
 			"success": total_ok,
