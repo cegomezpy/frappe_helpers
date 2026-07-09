@@ -170,11 +170,17 @@ def env_reset(ctx, save_tables, output_dir, skip_backup, no_deps, dry_run, yes, 
 			if verbose:
 				click.echo(click.style(f"\n→ Preserve setup enabled - adding setup configuration DocTypes...", fg="cyan"))
 
-			setup_doctypes = [dt for dt in SETUP_DOCTYPES if dt not in doctypes_to_save]
+			setup_doctypes = [
+				dt for dt in SETUP_DOCTYPES
+				if dt not in doctypes_to_save and frappe.db.exists("DocType", dt)
+			]
+			skipped = [dt for dt in SETUP_DOCTYPES if dt not in doctypes_to_save and not frappe.db.exists("DocType", dt)]
 			doctypes_to_save.extend(setup_doctypes)
 
 			if verbose:
 				click.echo(click.style(f"  ✓ Added {len(setup_doctypes)} setup DocTypes", fg="green"))
+				if skipped:
+					click.echo(click.style(f"  ⚠ Skipped {len(skipped)} DocTypes not installed: {', '.join(skipped)}", fg="yellow"))
 
 		plan = orchestrator.create_plan(
 			requested_doctypes=doctypes_to_save,

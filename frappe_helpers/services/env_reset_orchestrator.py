@@ -251,18 +251,16 @@ class EnvResetOrchestrator:
 			click.echo(click.style(f"\n→ Disabling setup wizard...", fg="cyan"))
 
 		try:
-			if frappe.db.exists("Singles", "System Settings"):
-				frappe.db.set_value("System Settings", None, "setup_complete", 1)
-				frappe.db.commit()
+			doc = frappe.get_doc("System Settings")
+			doc.setup_complete = 1
+			doc.flags.ignore_permissions = True
+			doc.save(ignore_permissions=True)
+			frappe.db.commit()
 
-				if self.verbose:
-					click.echo(click.style(f"  ✓ Setup wizard disabled", fg="green"))
+			if self.verbose:
+				click.echo(click.style(f"  ✓ Setup wizard disabled", fg="green"))
 
-				self.logger.info("Setup wizard disabled successfully")
-			else:
-				self.logger.warning("System Settings not found, skipping setup wizard disable")
-				if self.verbose:
-					click.echo(click.style(f"  ⚠ System Settings not found, skipping", fg="yellow"))
+			self.logger.info("Setup wizard disabled successfully")
 
 		except Exception as e:
 			self.logger.error(f"Failed to disable setup wizard: {e}", exc_info=True)
