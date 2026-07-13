@@ -31,7 +31,8 @@ class ImportService:
 		"""
 		Import (upsert) records for a DocType.
 
-		If a record exists, it's updated. Otherwise, it's inserted.
+		Single DocTypes are updated in-place. Regular DocTypes are upserted
+		by name: updated if exists, inserted otherwise.
 
 		Args:
 			doctype: DocType name
@@ -40,6 +41,11 @@ class ImportService:
 		Returns:
 			Tuple of (success_count, fail_count)
 		"""
+		meta = frappe.get_meta(doctype)
+
+		if meta.issingle:
+			return self._import_single(doctype, records[0] if records else {})
+
 		success = 0
 		fail = 0
 
@@ -75,6 +81,38 @@ class ImportService:
 
 		frappe.db.commit()
 		return success, fail
+
+	def _import_single(self, doctype: str, record: dict) -> Tuple[int, int]:
+		"""
+		Import a Single DocType by updating its fields in-place.
+
+		Singles cannot be inserted — they always exist as a single record
+		that must be updated via get_doc/save.
+
+		Args:
+			doctype: Single DocType name
+			record: Record dictionary from export
+
+		Returns:
+			Tuple of (success_count, fail_count)
+		"""
+		try:
+			doc = frappe.get_doc(doctype)
+			doc.update(record)
+			doc.flags.ignore_permissions = True
+			doc.flags.ignore_validate = True
+			doc.save(ignore_permissions=True)
+			frappe.db.commit()
+
+			if self.verbose:
+				click.echo(f"    • Updated Single {doctype}")
+			return 1, 0
+
+		except Exception as exc:
+			self.logger.error(f"Failed to import Single {doctype}: {exc}", exc_info=True)
+			if self.verbose:
+				click.echo(click.style(f"    ✗ Failed to import Single {doctype}: {exc}", fg="red"))
+			return 0, 1
 
 	def import_all(self, manifest: List[Dict], site: str) -> Dict[str, int]:
 		"""

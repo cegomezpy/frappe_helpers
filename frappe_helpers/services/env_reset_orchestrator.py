@@ -250,19 +250,13 @@ class EnvResetOrchestrator:
 		if self.verbose:
 			click.echo(click.style(f"\n→ Disabling setup wizard...", fg="cyan"))
 
-		try:
-			doc = frappe.get_doc("System Settings")
-			doc.setup_complete = 1
-			doc.flags.ignore_permissions = True
-			doc.save(ignore_permissions=True)
-			frappe.db.commit()
+		doc = frappe.get_doc("System Settings")
+		doc.setup_complete = 1
+		doc.flags.ignore_permissions = True
+		doc.save(ignore_permissions=True)
+		frappe.db.commit()
 
-			if self.verbose:
-				click.echo(click.style(f"  ✓ Setup wizard disabled", fg="green"))
+		if self.verbose:
+			click.echo(click.style(f"  ✓ Setup wizard disabled", fg="green"))
 
-			self.logger.info("Setup wizard disabled successfully")
-
-		except Exception as e:
-			self.logger.error(f"Failed to disable setup wizard: {e}", exc_info=True)
-			if self.verbose:
-				click.echo(click.style(f"  ✗ Failed to disable setup wizard: {e}", fg="red"))
+		self.logger.info("Setup wizard disabled successfully")

@@ -63,6 +63,11 @@ class ExportService:
 			click.echo(click.style(f"  → Exporting {doctype}...", fg="cyan"))
 
 		try:
+			meta = frappe.get_meta(doctype)
+
+			if meta.issingle:
+				return self._export_single(doctype)
+
 			filters = [["name", "in", names_filter]] if names_filter else None
 
 			rows = frappe.get_all(
@@ -106,6 +111,36 @@ class ExportService:
 			self.logger.error(f"Failed to export {doctype}: {exc}", exc_info=True)
 			if self.verbose:
 				click.echo(click.style(f"    ✗ Export failed: {exc}", fg="red"))
+			return None
+
+	def _export_single(self, doctype: str) -> Optional[str]:
+		"""
+		Export a Single DocType (one record, no DB rows).
+
+		Single DocTypes cannot be queried with get_all — they must be
+		fetched directly with get_doc.
+
+		Args:
+			doctype: Single DocType name
+
+		Returns:
+			Path to exported file, or None on failure
+		"""
+		try:
+			doc = frappe.get_doc(doctype)
+			filepath = os.path.join(self.output_dir, self._safe_filename(doctype))
+			with open(filepath, "w", encoding="utf-8") as fh:
+				json.dump([doc.as_dict()], fh, indent=2, default=str, ensure_ascii=False)
+
+			self.logger.info(f"Exported Single {doctype}")
+			if self.verbose:
+				click.echo(click.style(f"    ✓ Exported Single {doctype}", fg="green"))
+			return filepath
+
+		except Exception as exc:
+			self.logger.error(f"Failed to export Single {doctype}: {exc}", exc_info=True)
+			if self.verbose:
+				click.echo(click.style(f"    ✗ Export failed for Single {doctype}: {exc}", fg="red"))
 			return None
 
 	def export_all(
