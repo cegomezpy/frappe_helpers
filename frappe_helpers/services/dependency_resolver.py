@@ -127,7 +127,10 @@ class DependencyResolver:
 		Perform topological sort using Kahn's algorithm.
 
 		Returns import order where dependencies come before dependents.
-		Circular dependencies are detected and placed at the end.
+
+		A cycle is broken by emitting the DocType that unblocks the most
+		dependents, so cycle members stay usefully ordered (Company before
+		Cost Center, for instance) instead of in arbitrary set order.
 
 		Args:
 			doctypes_dict: Dictionary of doctypes with their types
@@ -148,26 +151,40 @@ class DependencyResolver:
 					graph[dep].add(dt)
 					in_degree[dt] += 1
 
-		queue = deque(dt for dt in all_dts if in_degree[dt] == 0)
+		queue = deque(sorted(dt for dt in all_dts if in_degree[dt] == 0))
+		pending = set(all_dts)
 		order = []
+		cycle_breakers = []
 
-		while queue:
-			dt = queue.popleft()
-			order.append(dt)
-			for dependent in graph[dt]:
-				in_degree[dependent] -= 1
-				if in_degree[dependent] == 0:
-					queue.append(dependent)
+		while pending:
+			while queue:
+				dt = queue.popleft()
+				if dt not in pending:
+					continue
 
-		remaining = [dt for dt in all_dts if dt not in order]
-		if remaining:
+				pending.discard(dt)
+				order.append(dt)
+				for dependent in sorted(graph[dt]):
+					in_degree[dependent] -= 1
+					if in_degree[dependent] == 0:
+						queue.append(dependent)
+
+			if pending:
+				breaker = min(pending, key=lambda dt: (-len(graph[dt]), in_degree[dt], dt))
+				cycle_breakers.append(breaker)
+				queue.append(breaker)
+
+		if cycle_breakers:
 			self.logger.warning(
-				f"Circular dependencies detected: {', '.join(remaining)}. "
-				"These will be imported last."
+				f"Circular dependencies broken at: {', '.join(cycle_breakers)}"
 			)
 			if self.verbose:
-				click.echo(click.style(f"  ⚠ Circular dependencies: {', '.join(remaining)}", fg="yellow"))
-			order.extend(remaining)
+				click.echo(
+					click.style(
+						f"  ⚠ Circular dependencies broken at: {', '.join(cycle_breakers)}",
+						fg="yellow",
+					)
+				)
 
 		if self.verbose:
 			click.echo(click.style(f"  ✓ Import order computed ({len(order)} DocTypes)", fg="green"))

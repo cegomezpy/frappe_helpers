@@ -11,6 +11,8 @@ from typing import Dict, List, Tuple
 import click
 import frappe
 
+from frappe_helpers.utils.constants import NON_RESTORABLE_FIELDS
+
 
 class ImportService:
 	"""Handles importing DocType records from JSON files."""
@@ -26,6 +28,26 @@ class ImportService:
 		self.output_dir = output_dir
 		self.verbose = verbose
 		self.logger = frappe.logger("frappe_helpers.import_service")
+
+	def _restorable_fields(self, record: dict) -> dict:
+		"""
+		Strip framework-owned keys and unset values from an exported record.
+
+		Replaying `modified` makes Frappe reject the save with
+		TimestampMismatchError, and replaying `None` would overwrite the
+		defaults a freshly reinstalled site already has.
+
+		Args:
+			record: Record dictionary as produced by doc.as_dict()
+
+		Returns:
+			Dictionary safe to apply onto an existing document
+		"""
+		return {
+			key: value
+			for key, value in record.items()
+			if key not in NON_RESTORABLE_FIELDS and value is not None
+		}
 
 	def import_records(self, doctype: str, records: List[dict]) -> Tuple[int, int]:
 		"""
@@ -54,9 +76,11 @@ class ImportService:
 			try:
 				if frappe.db.exists(doctype, name):
 					doc = frappe.get_doc(doctype, name)
-					doc.update(rec)
+					doc.update(self._restorable_fields(rec))
 					doc.flags.ignore_permissions = True
 					doc.flags.ignore_validate = True
+					doc.flags.ignore_mandatory = True
+					doc.flags.ignore_links = True
 					doc.save(ignore_permissions=True)
 					if self.verbose:
 						click.echo(f"    • Updated {name}")
@@ -98,9 +122,11 @@ class ImportService:
 		"""
 		try:
 			doc = frappe.get_doc(doctype)
-			doc.update(record)
+			doc.update(self._restorable_fields(record))
 			doc.flags.ignore_permissions = True
 			doc.flags.ignore_validate = True
+			doc.flags.ignore_mandatory = True
+			doc.flags.ignore_links = True
 			doc.save(ignore_permissions=True)
 			frappe.db.commit()
 

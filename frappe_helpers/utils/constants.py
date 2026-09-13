@@ -59,6 +59,21 @@ FRAMEWORK_DOCTYPES = frozenset({
     "Web Page", "Web Form", "Blog Post", "Blog Category",
 })
 
+# Apps whose completion gates frappe.is_setup_complete()
+SETUP_WIZARD_APPS = ("frappe", "erpnext")
+
+# Mandatory System Settings fields the setup wizard is responsible for
+REQUIRED_SETUP_FIELDS = ("language", "time_zone")
+
+# Keys returned by as_dict() that must never be replayed onto an existing
+# document: `modified` triggers TimestampMismatchError and the rest are
+# owned by the framework, not by the exported data.
+NON_RESTORABLE_FIELDS = frozenset({
+    "doctype", "name", "owner", "creation", "modified", "modified_by",
+    "idx", "docstatus", "parent", "parentfield", "parenttype",
+    "__islocal", "__unsaved", "__onload",
+})
+
 SETUP_DOCTYPES = [
     # Core Company Setup
     "Company",
@@ -67,6 +82,7 @@ SETUP_DOCTYPES = [
 
     # Settings (Singles)
     "System Settings",
+    "Global Defaults",
     "Website Settings",
     "Selling Settings",
     "Buying Settings",

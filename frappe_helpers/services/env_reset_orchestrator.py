@@ -17,6 +17,7 @@ from frappe_helpers.services.backup_service import BackupService
 from frappe_helpers.services.dependency_resolver import DependencyResolver
 from frappe_helpers.services.export_service import ExportService
 from frappe_helpers.services.import_service import ImportService
+from frappe_helpers.utils.constants import REQUIRED_SETUP_FIELDS, SETUP_WIZARD_APPS
 from frappe_helpers.utils.validators import DocTypeValidator
 
 
@@ -243,18 +244,57 @@ class EnvResetOrchestrator:
 		import_service = ImportService(output_dir, verbose=self.verbose)
 		return import_service.import_all(manifest, self.site)
 
+	def _get_missing_setup_fields(self) -> list[str]:
+		"""
+		Return the mandatory System Settings fields the import did not restore.
+
+		Args:
+			None
+
+		Returns:
+			List of empty field names
+		"""
+		return [
+			field
+			for field in REQUIRED_SETUP_FIELDS
+			if not frappe.db.get_single_value("System Settings", field)
+		]
+
 	def _disable_setup_wizard(self):
-		"""Disable setup wizard after successful import."""
+		"""
+		Mark the setup wizard as complete after a successful import.
+
+		frappe.is_setup_complete() reads Installed Application.is_setup_complete;
+		System Settings.setup_complete is only a mirror of it. Writing the mirror
+		alone leaves the desk redirecting to a wizard that cannot be finished.
+
+		If the import did not restore the configuration the wizard is responsible
+		for, the wizard is left enabled so it can still be completed by hand.
+		"""
 		self.logger.info("Disabling setup wizard")
 
 		if self.verbose:
 			click.echo(click.style(f"\n→ Disabling setup wizard...", fg="cyan"))
 
-		doc = frappe.get_doc("System Settings")
-		doc.setup_complete = 1
-		doc.flags.ignore_permissions = True
-		doc.save(ignore_permissions=True)
+		missing = self._get_missing_setup_fields()
+		if missing:
+			message = (
+				f"Setup wizard left enabled: {', '.join(missing)} were not restored. "
+				"Complete the wizard manually to finish configuring the site."
+			)
+			self.logger.warning(message)
+			click.echo(click.style(f"  ⚠ {message}", fg="yellow"))
+			return
+
+		for app_name in SETUP_WIZARD_APPS:
+			frappe.db.set_value(
+				"Installed Application", {"app_name": app_name}, "is_setup_complete", 1
+			)
+
+		frappe.clear_cache(doctype="System Settings")
+		frappe.db.set_single_value("System Settings", "setup_complete", frappe.is_setup_complete())
 		frappe.db.commit()
+		frappe.clear_cache()
 
 		if self.verbose:
 			click.echo(click.style(f"  ✓ Setup wizard disabled", fg="green"))
